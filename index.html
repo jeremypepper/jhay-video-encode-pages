@@ -8,7 +8,7 @@
 </head>
 <body>
   <main class="card">
-    <h1>Video Upload v2</h1>
+    <h1>Video Upload v3</h1>
 
     <section id="auth-section">
       <div id="google-signin-button"></div>
@@ -20,8 +20,10 @@
 
     <section id="upload-section">
       <label for="file-input">Video file</label>
-      <input id="file-input" type="file" accept="video/*" />
-      <span id="file-size" class="muted"></span>
+      <div id="file-row">
+        <input id="file-input" type="file" accept="video/*" />
+        <span id="file-size" class="muted"></span>
+      </div>
       <button id="upload-btn">Upload</button>
 
       <div id="progress-wrap" hidden>

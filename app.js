@@ -57,26 +57,18 @@ els.signOutBtn.addEventListener("click", signOut);
 
 // Google Identity Services calls this automatically once the client library has loaded.
 function onGoogleLibraryLoad() {
-  console.log("onGoogleLibraryLoad")
   google.accounts.id.initialize({
     client_id: window.APP_CONFIG.GOOGLE_CLIENT_ID,
     callback: handleCredentialResponse,
     auto_select: true,
   });
   // Trigger the prompt (this handles Google One Tap and auto-selection)
-  google.accounts.id.prompt((notification) => {
-    if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-      console.log("Auto-select skipped. User may need to click a standard sign-in button.");
-    }
-  });
-  //google.accounts.id.renderButton(els.signinButton, { theme: "outline", size: "large" });
-  console.log("onGoogleLibraryLoad done")
+  google.accounts.id.prompt();
 }
 window.onGoogleLibraryLoad = onGoogleLibraryLoad;
 
 function handleCredentialResponse(response) {
   idToken = response.credential;
-  console.log("handleCredentialResponse", idToken, response)
   sessionStorage.setItem(ID_TOKEN_STORAGE_KEY, idToken);
   showSignedIn(decodeJwtPayload(idToken));
 }
@@ -87,7 +79,6 @@ function handleCredentialResponse(response) {
 // trying to keep the two in sync proactively on load was unreliable. Checking
 // only at the moment of action sidesteps that entirely.
 function restoreSessionIfValid() {
-  console.log("restoreSessionIfValid")
   if (idToken) return true;
 
   const stored = sessionStorage.getItem(ID_TOKEN_STORAGE_KEY);
@@ -95,7 +86,6 @@ function restoreSessionIfValid() {
 
   const payload = decodeJwtPayload(stored);
   const isExpired = !payload || !payload.exp || payload.exp * 1000 <= Date.now();
-  console.log("isexpired", isExpired)
   if (isExpired) {
     sessionStorage.removeItem(ID_TOKEN_STORAGE_KEY);
     return false;
@@ -189,6 +179,8 @@ function pollJobStatus(jobId) {
   const deadline = Date.now() + POLL_TIMEOUT_MS;
 
   let consecutiveErrors = 0;
+  let convertingStartedAt = null;
+  let convertingStartPercent = null;
 
   return new Promise((resolve) => {
     const poll = async () => {
@@ -219,6 +211,16 @@ function pollJobStatus(jobId) {
       }
 
       consecutiveErrors = 0;
+
+      if (data.status === "converting") {
+        const pct = data.progressPercent ?? 0;
+        if (convertingStartedAt === null) {
+          convertingStartedAt = Date.now();
+          convertingStartPercent = pct;
+        }
+        data.etaSeconds = estimateRemainingSeconds(convertingStartedAt, convertingStartPercent, pct);
+      }
+
       applyJobStatus(data);
 
       if (data.status === "done" || data.status === "failed") {
@@ -243,6 +245,27 @@ function pollJobStatus(jobId) {
   });
 }
 
+// Linear extrapolation from however much progress happened since conversion
+// started tracking (in this browser tab) to now, projected out to 100%.
+// Returns null until there's been at least some measurable progress -- with
+// zero progress made so far there's nothing to extrapolate a rate from.
+function estimateRemainingSeconds(startedAt, startPercent, currentPercent) {
+  const progressMade = currentPercent - startPercent;
+  if (progressMade <= 0) return null;
+
+  const elapsedSeconds = (Date.now() - startedAt) / 1000;
+  const remainingPercent = 100 - currentPercent;
+  return Math.round((elapsedSeconds / progressMade) * remainingPercent);
+}
+
+function formatDuration(totalSeconds) {
+  if (totalSeconds == null) return null;
+  const seconds = Math.max(0, Math.round(totalSeconds));
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return minutes === 0 ? `${remainingSeconds}s` : `${minutes}m ${remainingSeconds}s`;
+}
+
 function applyJobStatus(data) {
   switch (data.status) {
     case "uploading":
@@ -258,7 +281,8 @@ function applyJobStatus(data) {
       els.progressWrap.hidden = false;
       els.progressBar.value = pct;
       els.progressLabel.textContent = `${pct}%`;
-      setStatus(`Converting... ${pct}%`);
+      const eta = formatDuration(data.etaSeconds);
+      setStatus(eta ? `Converting... ${pct}% (about ${eta} remaining)` : `Converting... ${pct}%`);
       break;
     }
     case "done":

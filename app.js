@@ -9,6 +9,8 @@
 // The page then PUTs the raw file bytes to `uploadUrl` (Content-Type must match
 // what was sent above, since a presigned PUT usually signs over it).
 
+const ID_TOKEN_STORAGE_KEY = "videoUpload.idToken";
+
 let idToken = null;
 let selectedFile = null;
 
@@ -42,21 +44,42 @@ function onGoogleLibraryLoad() {
   google.accounts.id.initialize({
     client_id: window.APP_CONFIG.GOOGLE_CLIENT_ID,
     callback: handleCredentialResponse,
-    // Re-authenticate automatically on page load for a returning, already
-    // consented user, so the rendered button's apparent "signed in" look
-    // (reflecting the browser's Google session) matches our actual idToken
-    // state instead of requiring a redundant click every refresh.
     auto_select: true,
   });
   google.accounts.id.renderButton(els.signinButton, { theme: "outline", size: "large" });
-  google.accounts.id.prompt();
 }
 window.onGoogleLibraryLoad = onGoogleLibraryLoad;
 
 function handleCredentialResponse(response) {
   idToken = response.credential;
+  sessionStorage.setItem(ID_TOKEN_STORAGE_KEY, idToken);
+  showSignedIn(decodeJwtPayload(idToken));
+}
 
-  const payload = decodeJwtPayload(idToken);
+// Not called on load -- checked lazily from startUpload() instead, since the
+// rendered button can visually look signed-in (it reflects the browser's
+// Google session) well before/after our own idToken state actually is, and
+// trying to keep the two in sync proactively on load was unreliable. Checking
+// only at the moment of action sidesteps that entirely.
+function restoreSessionIfValid() {
+  if (idToken) return true;
+
+  const stored = sessionStorage.getItem(ID_TOKEN_STORAGE_KEY);
+  if (!stored) return false;
+
+  const payload = decodeJwtPayload(stored);
+  const isExpired = !payload || !payload.exp || payload.exp * 1000 <= Date.now();
+  if (isExpired) {
+    sessionStorage.removeItem(ID_TOKEN_STORAGE_KEY);
+    return false;
+  }
+
+  idToken = stored;
+  showSignedIn(payload);
+  return true;
+}
+
+function showSignedIn(payload) {
   els.signedInAs.textContent = payload ? `Signed in as ${payload.email}` : "Signed in";
   els.signinButton.hidden = true;
   els.signedInRow.hidden = false;
@@ -64,6 +87,7 @@ function handleCredentialResponse(response) {
 
 function signOut() {
   idToken = null;
+  sessionStorage.removeItem(ID_TOKEN_STORAGE_KEY);
   google.accounts.id.disableAutoSelect();
   els.signinButton.hidden = false;
   els.signedInRow.hidden = true;
@@ -80,7 +104,7 @@ function decodeJwtPayload(token) {
 }
 
 async function startUpload() {
-  if (!idToken) {
+  if (!restoreSessionIfValid()) {
     setStatus("Sign in with Google first.", true);
     return;
   }

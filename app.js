@@ -3,13 +3,23 @@
 //   POST {endpoint}
 //   Headers: Authorization: Bearer <google id token>, Content-Type: application/json
 //   Body:    { "filename": "...", "contentType": "...", "size": 12345 }
-//   Response: { "uploadUrl": "https://...presigned-s3-put-url...", "bucket": "...", "key": "..." }
+//   Response: { "uploadUrl": "...presigned-s3-put-url...", "bucket": "...", "key": "...", "jobId": "..." }
 //
 // The backend must verify the Google ID token before issuing the presigned URL.
 // The page then PUTs the raw file bytes to `uploadUrl` (Content-Type must match
 // what was sent above, since a presigned PUT usually signs over it).
+//
+// Expected contract for APP_CONFIG.STATUS_ENDPOINT_BASE:
+//
+//   GET {STATUS_ENDPOINT_BASE}/{jobId}
+//   Headers: Authorization: Bearer <google id token>
+//   Response: { "status": "uploading"|"uploaded"|"converting"|"done"|"failed",
+//               "progressPercent": 0-100, "outputBucket": "...", "outputKey": "...",
+//               "errorMessage": "..." }
 
 const ID_TOKEN_STORAGE_KEY = "videoUpload.idToken";
+const POLL_INTERVAL_MS = 2000;
+const POLL_TIMEOUT_MS = 15 * 60 * 1000; // safety cap so a stuck job doesn't poll forever
 
 let idToken = null;
 let selectedFile = null;
@@ -47,13 +57,20 @@ function onGoogleLibraryLoad() {
     callback: handleCredentialResponse,
     auto_select: true,
   });
-  google.accounts.id.renderButton(els.signinButton, { theme: "outline", size: "large" });
+  // Trigger the prompt (this handles Google One Tap and auto-selection)
+  google.accounts.id.prompt((notification) => {
+    if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+      console.log("Auto-select skipped. User may need to click a standard sign-in button.");
+    }
+  });
+  //google.accounts.id.renderButton(els.signinButton, { theme: "outline", size: "large" });
+  console.log("onGoogleLibraryLoad done")
 }
 window.onGoogleLibraryLoad = onGoogleLibraryLoad;
 
 function handleCredentialResponse(response) {
-  console.log("handleCredentialResponse")
   idToken = response.credential;
+  console.log("handleCredentialResponse", idToken, response)
   sessionStorage.setItem(ID_TOKEN_STORAGE_KEY, idToken);
   showSignedIn(decodeJwtPayload(idToken));
 }
@@ -138,19 +155,102 @@ async function startUpload() {
       throw new Error(`Endpoint returned ${presignRes.status}`);
     }
 
-    const { uploadUrl, bucket, key } = await presignRes.json();
+    const { uploadUrl, bucket, key, jobId } = await presignRes.json();
     if (!uploadUrl) {
       throw new Error("Response did not include an uploadUrl");
     }
 
     await putFileWithProgress(uploadUrl, selectedFile);
 
-    setStatus(`Uploaded to s3://${bucket}/${key}`);
+    if (jobId) {
+      // Progress bar stays live through this -- pollJobStatus manages its
+      // visibility itself as the job moves through uploaded/converting/done.
+      await pollJobStatus(jobId);
+    } else {
+      setStatus(`Uploaded to s3://${bucket}/${key}`);
+      els.progressWrap.hidden = true;
+    }
   } catch (err) {
     setStatus(`Upload failed: ${err.message}`, true);
-  } finally {
     els.progressWrap.hidden = true;
+  } finally {
     els.uploadBtn.disabled = false;
+  }
+}
+
+function pollJobStatus(jobId) {
+  const deadline = Date.now() + POLL_TIMEOUT_MS;
+
+  return new Promise((resolve) => {
+    const poll = async () => {
+      let data;
+      try {
+        const res = await fetch(`${window.APP_CONFIG.STATUS_ENDPOINT_BASE}/${jobId}`, {
+          headers: { Authorization: `Bearer ${idToken}` },
+        });
+        if (!res.ok) {
+          throw new Error(`Status endpoint returned ${res.status}`);
+        }
+        data = await res.json();
+      } catch (err) {
+        // Transient poll failures shouldn't abandon tracking -- just retry
+        // on the next tick, up to the overall deadline below.
+        console.error("Status poll failed, will retry", err);
+        return scheduleNextPollOrGiveUp();
+      }
+
+      applyJobStatus(data);
+
+      if (data.status === "done" || data.status === "failed") {
+        resolve();
+        return;
+      }
+
+      scheduleNextPollOrGiveUp();
+    };
+
+    function scheduleNextPollOrGiveUp() {
+      if (Date.now() < deadline) {
+        setTimeout(poll, POLL_INTERVAL_MS);
+      } else {
+        setStatus("Still processing -- check back later.", true);
+        els.progressWrap.hidden = true;
+        resolve();
+      }
+    }
+
+    poll();
+  });
+}
+
+function applyJobStatus(data) {
+  switch (data.status) {
+    case "uploading":
+      els.progressWrap.hidden = true;
+      setStatus("Waiting for upload to be confirmed...");
+      break;
+    case "uploaded":
+      els.progressWrap.hidden = true;
+      setStatus("Upload confirmed, starting conversion...");
+      break;
+    case "converting": {
+      const pct = data.progressPercent ?? 0;
+      els.progressWrap.hidden = false;
+      els.progressBar.value = pct;
+      els.progressLabel.textContent = `${pct}%`;
+      setStatus(`Converting... ${pct}%`);
+      break;
+    }
+    case "done":
+      els.progressWrap.hidden = true;
+      setStatus(`Done! Converted file: s3://${data.outputBucket}/${data.outputKey}`);
+      break;
+    case "failed":
+      els.progressWrap.hidden = true;
+      setStatus(`Conversion failed: ${data.errorMessage || "unknown error"}`, true);
+      break;
+    default:
+      console.warn("Unknown job status", data.status);
   }
 }
 
@@ -175,11 +275,19 @@ function putFileWithProgress(uploadUrl, file) {
       if (xhr.status >= 200 && xhr.status < 300) {
         resolve();
       } else {
+        console.error("S3 PUT failed", xhr.status, xhr.statusText, xhr.responseText);
         reject(new Error(`S3 upload returned ${xhr.status}`));
       }
     });
 
-    xhr.addEventListener("error", () => reject(new Error("Network error during upload")));
+    // "error"/"abort" fire for connection-level failures with no HTTP response at
+    // all (dropped connection, expired presigned URL rejected before a response
+    // body is readable cross-origin, etc.) -- these are the ones that show up in
+    // the console as a generic, misleading CORS failure rather than a real status
+    // code, so check the Network tab's request count/timing for this URL if it
+    // keeps happening.
+    xhr.addEventListener("error", () => reject(new Error("Network error during upload (see console/Network tab)")));
+    xhr.addEventListener("abort", () => reject(new Error("Upload aborted")));
 
     xhr.send(file);
   });

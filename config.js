@@ -6,4 +6,7 @@ window.APP_CONFIG = {
 
   // Presign Lambda, fronted by API Gateway.
   UPLOAD_ENDPOINT: "https://2wge3yb3u4.execute-api.us-west-2.amazonaws.com/presign",
+
+  // Status Lambda, same API Gateway. Actual polls hit `${STATUS_ENDPOINT_BASE}/<jobId>`.
+  STATUS_ENDPOINT_BASE: "https://2wge3yb3u4.execute-api.us-west-2.amazonaws.com/status",
 };

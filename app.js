@@ -20,6 +20,7 @@
 const ID_TOKEN_STORAGE_KEY = "videoUpload.idToken";
 const POLL_INTERVAL_MS = 2000;
 const POLL_TIMEOUT_MS = 15 * 60 * 1000; // safety cap so a stuck job doesn't poll forever
+const MAX_CONSECUTIVE_POLL_ERRORS = 3; // give up sooner than the deadline if the endpoint's actually down
 
 let idToken = null;
 let selectedFile = null;
@@ -35,16 +36,21 @@ const els = {
   signedInAs: document.getElementById("signed-in-as"),
   signOutBtn: document.getElementById("sign-out-btn"),
   signinButton: document.getElementById("google-signin-button"),
+  downloadLink: document.getElementById("download-link"),
+  fileSize: document.getElementById("file-size"),
 };
+
+function updateSelectedFile() {
+  selectedFile = els.fileInput.files[0] || null;
+  els.fileSize.textContent = selectedFile ? `${(selectedFile.size / (1024 * 1024)).toFixed(2)} MB` : "";
+}
 
 // A refresh can leave the native file input showing a previously chosen file
 // even though this script's state was just reset, so read whatever's already
 // there instead of waiting for a "change" event that won't fire again.
-selectedFile = els.fileInput.files[0] || null;
+updateSelectedFile();
 
-els.fileInput.addEventListener("change", () => {
-  selectedFile = els.fileInput.files[0] || null;
-});
+els.fileInput.addEventListener("change", updateSelectedFile);
 
 els.uploadBtn.addEventListener("click", startUpload);
 els.signOutBtn.addEventListener("click", signOut);
@@ -136,6 +142,7 @@ async function startUpload() {
 
   setStatus("Requesting upload URL...");
   els.uploadBtn.disabled = true;
+  els.downloadLink.hidden = true;
 
   try {
     const presignRes = await fetch(window.APP_CONFIG.UPLOAD_ENDPOINT, {
@@ -181,6 +188,8 @@ async function startUpload() {
 function pollJobStatus(jobId) {
   const deadline = Date.now() + POLL_TIMEOUT_MS;
 
+  let consecutiveErrors = 0;
+
   return new Promise((resolve) => {
     const poll = async () => {
       let data;
@@ -193,12 +202,23 @@ function pollJobStatus(jobId) {
         }
         data = await res.json();
       } catch (err) {
-        // Transient poll failures shouldn't abandon tracking -- just retry
-        // on the next tick, up to the overall deadline below.
-        console.error("Status poll failed, will retry", err);
+        consecutiveErrors++;
+        console.error(`Status poll failed (${consecutiveErrors}/${MAX_CONSECUTIVE_POLL_ERRORS})`, err);
+
+        if (consecutiveErrors >= MAX_CONSECUTIVE_POLL_ERRORS) {
+          setStatus("Lost track of conversion progress after repeated errors -- check back later.", true);
+          els.progressWrap.hidden = true;
+          resolve();
+          return;
+        }
+
+        // A single failed poll is likely transient -- retry on the next
+        // tick. Repeated failures in a row (handled above) mean the
+        // endpoint itself is probably down, not a one-off blip.
         return scheduleNextPollOrGiveUp();
       }
 
+      consecutiveErrors = 0;
       applyJobStatus(data);
 
       if (data.status === "done" || data.status === "failed") {
@@ -244,6 +264,15 @@ function applyJobStatus(data) {
     case "done":
       els.progressWrap.hidden = true;
       setStatus(`Done! Converted file: s3://${data.outputBucket}/${data.outputKey}`);
+      if (data.downloadUrl) {
+        els.downloadLink.href = data.downloadUrl;
+        els.downloadLink.hidden = false;
+        // The presigned URL includes a Content-Disposition: attachment header
+        // (set server-side), which is what actually makes a cross-origin
+        // click trigger a save-as download instead of just navigating to it --
+        // the HTML `download` attribute alone is ignored across origins.
+        els.downloadLink.click();
+      }
       break;
     case "failed":
       els.progressWrap.hidden = true;

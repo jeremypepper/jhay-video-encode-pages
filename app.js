@@ -27,7 +27,6 @@ const els = {
 
 els.fileInput.addEventListener("change", () => {
   selectedFile = els.fileInput.files[0] || null;
-  updateUploadButtonState();
 });
 
 els.uploadBtn.addEventListener("click", startUpload);
@@ -51,8 +50,6 @@ function handleCredentialResponse(response) {
   els.signedInAs.textContent = payload ? `Signed in as ${payload.email}` : "Signed in";
   els.signinButton.hidden = true;
   els.signedInRow.hidden = false;
-
-  updateUploadButtonState();
 }
 
 function signOut() {
@@ -60,7 +57,6 @@ function signOut() {
   google.accounts.id.disableAutoSelect();
   els.signinButton.hidden = false;
   els.signedInRow.hidden = true;
-  updateUploadButtonState();
 }
 
 function decodeJwtPayload(token) {
@@ -73,11 +69,16 @@ function decodeJwtPayload(token) {
   }
 }
 
-function updateUploadButtonState() {
-  els.uploadBtn.disabled = !(idToken && selectedFile);
-}
-
 async function startUpload() {
+  if (!idToken) {
+    setStatus("Sign in with Google first.", true);
+    return;
+  }
+  if (!selectedFile) {
+    setStatus("Choose a file first.", true);
+    return;
+  }
+
   setStatus("Requesting upload URL...");
   els.uploadBtn.disabled = true;
 
@@ -111,7 +112,7 @@ async function startUpload() {
     setStatus(`Upload failed: ${err.message}`, true);
   } finally {
     els.progressWrap.hidden = true;
-    updateUploadButtonState();
+    els.uploadBtn.disabled = false;
   }
 }
 

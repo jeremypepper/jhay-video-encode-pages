@@ -12,28 +12,26 @@
 let idToken = null;
 let selectedFile = null;
 
-const els = {};
+const els = {
+  fileInput: document.getElementById("file-input"),
+  uploadBtn: document.getElementById("upload-btn"),
+  progressWrap: document.getElementById("progress-wrap"),
+  progressBar: document.getElementById("progress-bar"),
+  progressLabel: document.getElementById("progress-label"),
+  statusMessage: document.getElementById("status-message"),
+  signedInRow: document.getElementById("signed-in-row"),
+  signedInAs: document.getElementById("signed-in-as"),
+  signOutBtn: document.getElementById("sign-out-btn"),
+  signinButton: document.getElementById("google-signin-button"),
+};
 
-document.addEventListener("DOMContentLoaded", () => {
-  els.fileInput = document.getElementById("file-input");
-  els.uploadBtn = document.getElementById("upload-btn");
-  els.progressWrap = document.getElementById("progress-wrap");
-  els.progressBar = document.getElementById("progress-bar");
-  els.progressLabel = document.getElementById("progress-label");
-  els.statusMessage = document.getElementById("status-message");
-  els.signedInRow = document.getElementById("signed-in-row");
-  els.signedInAs = document.getElementById("signed-in-as");
-  els.signOutBtn = document.getElementById("sign-out-btn");
-  els.signinButton = document.getElementById("google-signin-button");
-
-  els.fileInput.addEventListener("change", () => {
-    selectedFile = els.fileInput.files[0] || null;
-    updateUploadButtonState();
-  });
-
-  els.uploadBtn.addEventListener("click", startUpload);
-  els.signOutBtn.addEventListener("click", signOut);
+els.fileInput.addEventListener("change", () => {
+  selectedFile = els.fileInput.files[0] || null;
+  updateUploadButtonState();
 });
+
+els.uploadBtn.addEventListener("click", startUpload);
+els.signOutBtn.addEventListener("click", signOut);
 
 // Google Identity Services calls this automatically once the client library has loaded.
 function onGoogleLibraryLoad() {

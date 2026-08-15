@@ -41,6 +41,7 @@ els.signOutBtn.addEventListener("click", signOut);
 
 // Google Identity Services calls this automatically once the client library has loaded.
 function onGoogleLibraryLoad() {
+  console.log("onGoogleLibraryLoad")
   google.accounts.id.initialize({
     client_id: window.APP_CONFIG.GOOGLE_CLIENT_ID,
     callback: handleCredentialResponse,
@@ -51,6 +52,7 @@ function onGoogleLibraryLoad() {
 window.onGoogleLibraryLoad = onGoogleLibraryLoad;
 
 function handleCredentialResponse(response) {
+  console.log("handleCredentialResponse")
   idToken = response.credential;
   sessionStorage.setItem(ID_TOKEN_STORAGE_KEY, idToken);
   showSignedIn(decodeJwtPayload(idToken));
@@ -62,6 +64,7 @@ function handleCredentialResponse(response) {
 // trying to keep the two in sync proactively on load was unreliable. Checking
 // only at the moment of action sidesteps that entirely.
 function restoreSessionIfValid() {
+  console.log("restoreSessionIfValid")
   if (idToken) return true;
 
   const stored = sessionStorage.getItem(ID_TOKEN_STORAGE_KEY);
@@ -69,6 +72,7 @@ function restoreSessionIfValid() {
 
   const payload = decodeJwtPayload(stored);
   const isExpired = !payload || !payload.exp || payload.exp * 1000 <= Date.now();
+  console.log("isexpired", isExpired)
   if (isExpired) {
     sessionStorage.removeItem(ID_TOKEN_STORAGE_KEY);
     return false;

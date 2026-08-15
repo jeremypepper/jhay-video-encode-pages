@@ -25,6 +25,11 @@ const els = {
   signinButton: document.getElementById("google-signin-button"),
 };
 
+// A refresh can leave the native file input showing a previously chosen file
+// even though this script's state was just reset, so read whatever's already
+// there instead of waiting for a "change" event that won't fire again.
+selectedFile = els.fileInput.files[0] || null;
+
 els.fileInput.addEventListener("change", () => {
   selectedFile = els.fileInput.files[0] || null;
 });
@@ -37,9 +42,14 @@ function onGoogleLibraryLoad() {
   google.accounts.id.initialize({
     client_id: window.APP_CONFIG.GOOGLE_CLIENT_ID,
     callback: handleCredentialResponse,
-    auto_select: false,
+    // Re-authenticate automatically on page load for a returning, already
+    // consented user, so the rendered button's apparent "signed in" look
+    // (reflecting the browser's Google session) matches our actual idToken
+    // state instead of requiring a redundant click every refresh.
+    auto_select: true,
   });
   google.accounts.id.renderButton(els.signinButton, { theme: "outline", size: "large" });
+  google.accounts.id.prompt();
 }
 window.onGoogleLibraryLoad = onGoogleLibraryLoad;
 

@@ -1,0 +1,8 @@
+[
+  {
+    "AllowedOrigins": ["https://video.jhay.net"],
+    "AllowedMethods": ["PUT"],
+    "AllowedHeaders": ["*"],
+    "MaxAgeSeconds": 3000
+  }
+]

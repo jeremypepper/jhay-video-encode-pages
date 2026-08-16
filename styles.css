@@ -1,107 +1,22 @@
-* {
-  box-sizing: border-box;
-}
-
+/* Pico centers .container horizontally on its own (margin-inline: auto), but
+   body itself does nothing vertically -- this is the common pattern for
+   centering a single card/form vertically in the viewport on top of Pico. */
 body {
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-  background: #f5f5f7;
-  color: #1d1d1f;
-  display: flex;
-  justify-content: center;
-  padding: 3rem 1rem;
-  margin: 0;
-}
-
-.card {
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  padding: 2rem;
-  width: 100%;
-  max-width: 420px;
-}
-
-h1 {
-  font-size: 1.25rem;
-  margin: 0 0 1.5rem;
-}
-
-section {
-  margin-bottom: 1.5rem;
-}
-
-label {
-  display: block;
-  font-size: 0.85rem;
-  font-weight: 600;
-  margin-bottom: 0.4rem;
-}
-
-input[type="file"] {
-  padding: 0.5rem;
-  border: 1px solid #d2d2d7;
-  border-radius: 6px;
-  font-size: 0.9rem;
-}
-
-#file-row {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-}
-
-button {
-  margin-top: 0.75rem;
-  padding: 0.5rem 1rem;
-  border: none;
-  border-radius: 6px;
-  background: #0071e3;
-  color: #fff;
-  font-size: 0.9rem;
-  cursor: pointer;
-}
-
-button:disabled {
-  background: #b0b0b5;
-  cursor: not-allowed;
-}
-
-.link-btn {
-  background: none;
-  color: #0071e3;
-  padding: 0;
-  margin: 0;
-  font-size: 0.85rem;
-  text-decoration: underline;
-}
-
-#signed-in-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 0.5rem;
-}
-
-#progress-wrap {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-top: 0.75rem;
-}
-
-progress {
-  flex: 1;
-}
-
-.muted {
-  color: #6e6e73;
-  font-size: 0.85rem;
-}
-
-.error {
-  color: #d70015;
+  min-height: 100vh;
 }
 
 [hidden] {
   display: none !important;
+}
+
+/* Below Pico's own first breakpoint (576px, same scale .container itself
+   breaks on) -- give main extra top/bottom breathing room via Pico's own
+   spacing token, rather than a one-off hardcoded padding value, so it stays
+   consistent with the rest of Pico's spacing scale. */
+@media (max-width: 575.98px) {
+  main {
+    --pico-block-spacing-vertical: 2rem;
+  }
 }

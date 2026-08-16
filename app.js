@@ -26,6 +26,7 @@ let idToken = null;
 let selectedFile = null;
 
 const els = {
+  uploadForm: document.getElementById("upload-form"),
   fileInput: document.getElementById("file-input"),
   uploadBtn: document.getElementById("upload-btn"),
   progressWrap: document.getElementById("progress-wrap"),
@@ -53,7 +54,14 @@ updateSelectedFile();
 
 els.fileInput.addEventListener("change", updateSelectedFile);
 
-els.uploadBtn.addEventListener("click", startUpload);
+// type="submit" so pressing Enter in any field (e.g. the target-size input)
+// also triggers upload -- preventDefault stops the browser's native form
+// submission (which would otherwise navigate/reload the page) so our own
+// JS-driven flow runs instead.
+els.uploadForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  startUpload();
+});
 els.signOutBtn.addEventListener("click", signOut);
 
 // Google Identity Services calls this automatically once the client library has loaded.
@@ -302,8 +310,8 @@ function applyJobStatus(data) {
     }
     case "done": {
       els.progressWrap.hidden = true;
-      const costSuffix = data.estimatedCostUsd != null ? ` (est. Lambda cost: $${data.estimatedCostUsd.toFixed(4)})` : "";
-      setStatus(`Done! Converted file: s3://${data.outputBucket}/${data.outputKey}${costSuffix}`);
+      const costSuffix = data.estimatedCostUsd != null ? ` (Estimated Jeremy cost: $${data.estimatedCostUsd.toFixed(4)})` : "";
+      setStatus(`Done! Converted file: ${data.outputKey}${costSuffix}`);
       if (data.downloadUrl) {
         els.downloadLink.href = data.downloadUrl;
         els.downloadLink.hidden = false;

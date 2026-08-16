@@ -3,41 +3,50 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light dark" />
   <title>Video Upload</title>
   <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48x48.png">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <main class="card">
-    <h1>Video Upload v5</h1>
+  <main class="container">
+    <article>
+      <h1>Jeremy's Video Squisher v5</h1>
 
-    <section id="auth-section">
-      <div id="google-signin-button"></div>
-      <div id="signed-in-row" hidden>
-        <span id="signed-in-as" class="muted"></span>
-        <button id="sign-out-btn" class="link-btn">Sign out</button>
-      </div>
-    </section>
+      <section id="auth-section">
+        <div id="google-signin-button"></div>
+        <div id="signed-in-row" hidden>
+          <span id="signed-in-as" class="muted"></span>
+          <button id="sign-out-btn" class="secondary outline">Sign out</button>
+        </div>
+      </section>
 
-    <section id="upload-section">
-      <label for="file-input">Video file</label>
-      <div id="file-row">
-        <input id="file-input" type="file" accept="video/*" />
-        <span id="file-size" class="muted"></span>
-      </div>
-      <label for="target-size-input">Target size (MB)</label>
-      <input id="target-size-input" type="number" min="1" step="1" value="50" />
+      <section id="upload-section">
+          <form id="upload-form">
+              <label for="file-input">Select video</label>
+              <fieldset role="group">
 
-      <button id="upload-btn">Upload</button>
+            <input id="file-input" type="file" accept="video/*" />
+            <span id="file-size" class="muted"></span>
+              </fieldset>
 
-      <div id="progress-wrap" hidden>
-        <progress id="progress-bar" value="0" max="100"></progress>
-        <span id="progress-label">0%</span>
-      </div>
+            <label>Target size (MB)
+            <input id="target-size-input" type="number" min="1" step="1" value="50" />
+            </label>
 
-      <p id="status-message" class="muted"></p>
-      <a id="download-link" href="#" target="_blank" rel="noopener noreferrer" hidden>Download converted file</a>
-    </section>
+            <button id="upload-btn" type="submit">Upload</button>
+
+            <div id="progress-wrap" hidden>
+            <progress id="progress-bar" value="0" max="100"></progress>
+            <span id="progress-label">0%</span>
+            </div>
+
+            <p id="status-message" class="muted"></p>
+            <a id="download-link" href="#" target="_blank" rel="noopener noreferrer" hidden>Download converted file</a>
+        </form>
+      </section>
+    </article>
   </main>
 
   <script src="config.js"></script>

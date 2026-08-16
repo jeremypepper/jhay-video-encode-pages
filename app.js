@@ -300,9 +300,10 @@ function applyJobStatus(data) {
       setStatus(parts.length ? `${label}... ${pct}% (${parts.join(", ")})` : `${label}... ${pct}%`);
       break;
     }
-    case "done":
+    case "done": {
       els.progressWrap.hidden = true;
-      setStatus(`Done! Converted file: s3://${data.outputBucket}/${data.outputKey}`);
+      const costSuffix = data.estimatedCostUsd != null ? ` (est. Lambda cost: $${data.estimatedCostUsd.toFixed(4)})` : "";
+      setStatus(`Done! Converted file: s3://${data.outputBucket}/${data.outputKey}${costSuffix}`);
       if (data.downloadUrl) {
         els.downloadLink.href = data.downloadUrl;
         els.downloadLink.hidden = false;
@@ -313,6 +314,7 @@ function applyJobStatus(data) {
         els.downloadLink.click();
       }
       break;
+    }
     case "failed":
       els.progressWrap.hidden = true;
       setStatus(`Conversion failed: ${data.errorMessage || "unknown error"}`, true);

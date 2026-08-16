@@ -2,7 +2,8 @@
 //
 //   POST {endpoint}
 //   Headers: Authorization: Bearer <google id token>, Content-Type: application/json
-//   Body:    { "filename": "...", "contentType": "...", "size": 12345, "targetSizeMb": 50 }
+//   Body:    { "filename": "...", "contentType": "...", "size": 12345, "targetSizeMb": 50,
+//              "resolutionCap": "1080"|"720"|"480", "normalizeAudio": true }
 //   Response: { "uploadUrl": "...presigned-s3-put-url...", "bucket": "...", "key": "...", "jobId": "..." }
 //
 // The backend must verify the Google ID token before issuing the presigned URL.
@@ -31,7 +32,6 @@ const els = {
   uploadBtn: document.getElementById("upload-btn"),
   progressWrap: document.getElementById("progress-wrap"),
   progressBar: document.getElementById("progress-bar"),
-  progressLabel: document.getElementById("progress-label"),
   statusMessage: document.getElementById("status-message"),
   signedInRow: document.getElementById("signed-in-row"),
   signedInAs: document.getElementById("signed-in-as"),
@@ -40,6 +40,8 @@ const els = {
   downloadLink: document.getElementById("download-link"),
   fileSize: document.getElementById("file-size"),
   targetSizeInput: document.getElementById("target-size-input"),
+  resolutionCapInput: document.getElementById("resolution-cap-input"),
+  normalizeAudioInput: document.getElementById("normalize-audio-input"),
 };
 
 function updateSelectedFile() {
@@ -155,6 +157,8 @@ async function startUpload() {
         contentType: selectedFile.type || "application/octet-stream",
         size: selectedFile.size,
         targetSizeMb: Number(els.targetSizeInput.value) || 50,
+        resolutionCap: els.resolutionCapInput.value,
+        normalizeAudio: els.normalizeAudioInput.checked,
       }),
     });
 
@@ -291,7 +295,6 @@ function applyJobStatus(data) {
       const pct = data.progressPercent ?? 0;
       els.progressWrap.hidden = false;
       els.progressBar.value = pct;
-      els.progressLabel.textContent = `${pct}%`;
 
       // encodePass is only present for the two-pass (target-size) path --
       // absent means the single-pass CRF fallback, which has no "pass" concept.
@@ -344,7 +347,6 @@ function putFileWithProgress(uploadUrl, file) {
       if (event.lengthComputable) {
         const pct = Math.round((event.loaded / event.total) * 100);
         els.progressBar.value = pct;
-        els.progressLabel.textContent = `${pct}%`;
         setStatus(`Uploading... ${pct}%`);
       }
     });

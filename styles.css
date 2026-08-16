@@ -11,6 +11,10 @@ body {
   display: none !important;
 }
 
+.upload-btn-spaced {
+  margin-top: var(--pico-spacing);
+}
+
 /* Below Pico's own first breakpoint (576px, same scale .container itself
    breaks on) -- give main extra top/bottom breathing room via Pico's own
    spacing token, rather than a one-off hardcoded padding value, so it stays

@@ -12,7 +12,7 @@
 <body>
   <main class="container">
     <article>
-      <h1>Jeremy's Video Squisher v6</h1>
+      <h1>Jeremy's Video Squisher v7</h1>
 
       <section id="auth-section">
         <div id="google-signin-button"></div>
@@ -35,11 +35,22 @@
             <input id="target-size-input" type="number" min="1" step="1" value="50" />
             </label>
 
-            <button id="upload-btn" type="submit">Upload</button>
+            <label for="resolution-cap-input">Resolution</label>
+            <select id="resolution-cap-input">
+              <option value="1080">1080p</option>
+              <option value="720" selected>720p</option>
+              <option value="480">480p</option>
+            </select>
+
+            <label>
+              <input id="normalize-audio-input" type="checkbox" role="switch" checked />
+              Normalize audio (-14 LUFS)
+            </label>
+
+            <button id="upload-btn" type="submit" class="upload-btn-spaced">Upload</button>
 
             <div id="progress-wrap" hidden>
             <progress id="progress-bar" value="0" max="100"></progress>
-            <span id="progress-label">0%</span>
             </div>
 
             <p id="status-message" class="muted"></p>

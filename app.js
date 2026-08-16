@@ -2,7 +2,7 @@
 //
 //   POST {endpoint}
 //   Headers: Authorization: Bearer <google id token>, Content-Type: application/json
-//   Body:    { "filename": "...", "contentType": "...", "size": 12345 }
+//   Body:    { "filename": "...", "contentType": "...", "size": 12345, "targetSizeMb": 50 }
 //   Response: { "uploadUrl": "...presigned-s3-put-url...", "bucket": "...", "key": "...", "jobId": "..." }
 //
 // The backend must verify the Google ID token before issuing the presigned URL.
@@ -38,6 +38,7 @@ const els = {
   signinButton: document.getElementById("google-signin-button"),
   downloadLink: document.getElementById("download-link"),
   fileSize: document.getElementById("file-size"),
+  targetSizeInput: document.getElementById("target-size-input"),
 };
 
 function updateSelectedFile() {
@@ -145,6 +146,7 @@ async function startUpload() {
         filename: selectedFile.name,
         contentType: selectedFile.type || "application/octet-stream",
         size: selectedFile.size,
+        targetSizeMb: Number(els.targetSizeInput.value) || 50,
       }),
     });
 
@@ -218,6 +220,7 @@ function pollJobStatus(jobId) {
           convertingStartedAt = Date.now();
           convertingStartPercent = pct;
         }
+        data.elapsedSeconds = (Date.now() - convertingStartedAt) / 1000;
         data.etaSeconds = estimateRemainingSeconds(convertingStartedAt, convertingStartPercent, pct);
       }
 
@@ -281,8 +284,20 @@ function applyJobStatus(data) {
       els.progressWrap.hidden = false;
       els.progressBar.value = pct;
       els.progressLabel.textContent = `${pct}%`;
+
+      // encodePass is only present for the two-pass (target-size) path --
+      // absent means the single-pass CRF fallback, which has no "pass" concept.
+      let label = "Converting";
+      if (data.encodePass === 1) label = "Pass 1/2 (analyzing)";
+      else if (data.encodePass === 2) label = "Pass 2/2 (encoding)";
+
+      const elapsed = formatDuration(data.elapsedSeconds);
       const eta = formatDuration(data.etaSeconds);
-      setStatus(eta ? `Converting... ${pct}% (about ${eta} remaining)` : `Converting... ${pct}%`);
+      const parts = [];
+      if (elapsed) parts.push(`${elapsed} elapsed`);
+      if (eta) parts.push(`about ${eta} remaining`);
+
+      setStatus(parts.length ? `${label}... ${pct}% (${parts.join(", ")})` : `${label}... ${pct}%`);
       break;
     }
     case "done":

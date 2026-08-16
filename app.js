@@ -73,7 +73,11 @@ function onGoogleLibraryLoad() {
     callback: handleCredentialResponse,
     auto_select: true,
   });
-  // Trigger the prompt (this handles Google One Tap and auto-selection)
+  // The actual persistent, clickable sign-in button. auto_select + prompt()
+  // below is a nice-to-have for returning users (silent re-auth via One
+  // Tap), but it's transient and doesn't always fire -- without a real
+  // rendered button, a genuinely logged-out user has nothing to click at all.
+  google.accounts.id.renderButton(els.signinButton, { theme: "outline", size: "large" });
   google.accounts.id.prompt();
 }
 window.onGoogleLibraryLoad = onGoogleLibraryLoad;
@@ -377,3 +381,21 @@ function setStatus(message, isError = false) {
   els.statusMessage.textContent = message;
   els.statusMessage.classList.toggle("error", isError);
 }
+
+
+const videoPlayer = document.getElementById('videoPlayer');
+function loadFileInVideo(file) {
+  if (file) {
+    // Create a temporary blob URL pointing to the local file
+    const fileURL = URL.createObjectURL(file);
+
+    videoPlayer.src = fileURL;
+    videoPlayer.style.display = 'block';
+  }
+}
+els.fileInput.addEventListener('change', function(event) {
+  const file = event.target.files[0];
+  loadFileInVideo(file);
+});
+// on load sometimes there is already a cached file
+loadFileInVideo(els.fileInput.files[0])

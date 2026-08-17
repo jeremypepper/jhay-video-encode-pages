@@ -300,6 +300,15 @@ function applyJobStatus(data) {
       els.progressWrap.hidden = false;
       els.progressBar.value = pct;
 
+      // Only seek during the actual encode (pass 2, or the single-pass CRF
+      // fallback where encodePass is absent) -- pass 1 is just analysis, its
+      // percent doesn't correspond to "how far through the video" the same
+      // way. duration is NaN until the browser's finished loading the local
+      // preview's metadata, so that has to be checked too.
+      if (data.encodePass !== 1 && videoPlayer.duration && !isNaN(videoPlayer.duration)) {
+        videoPlayer.currentTime = (pct / 100) * videoPlayer.duration;
+      }
+
       // encodePass is only present for the two-pass (target-size) path --
       // absent means the single-pass CRF fallback, which has no "pass" concept.
       let label = "Converting";
